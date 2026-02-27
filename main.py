@@ -1,67 +1,75 @@
 import os
 import subprocess
-import glob
+import requests
 from pathlib import Path
+
 
 def get_input(prompt, default=""):
     val = input(f"{prompt} [{default}]: ").strip()
     return val if val else default
 
-def run_build():
-    print("=== 🚀 Pake MSI Maker (Internal Login Mode) ===")
-    
-    url = get_input("URL", "http://example.com")
-    app_name = get_input("App Name", "exmaple")
-    
-    # Chromeに偽装してログインをアプリ内で完結させる
-    ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    
-    downloads_dir = Path(os.path.expanduser("~")) / "Downloads"
 
-    # --iterative-build を外して MSI を生成
+def download_icon(url, save_path):
+    # GoogleのS2サービスを利用して、URLから最高精度のアイコン(128px)を抽出
+    icon_url = f"https://www.google.com/s2/favicons?domain={url}&sz=128"
+    print(f"🎨 アイコンを自動取得中: {icon_url}")
+    try:
+        response = requests.get(icon_url, timeout=10)
+        with open(save_path, "wb") as f:
+            f.write(response.content)
+        return True
+    except Exception as e:
+        print(f"⚠️ アイコン取得失敗: {e}")
+        return False
+
+
+def run_build():
+    print("=== 🚀 Pake MSI Maker: Auto-Icon & Internal-Login ===")
+
+    url = get_input("URL", "http://example.com/")
+    app_name = get_input("App Name", "Example")
+
+    downloads_dir = Path(os.path.expanduser("~")) / "Downloads"
+    icon_path = downloads_dir / f"{app_name}_icon.png"
+
+    # 1. アイコンを自動取得して保存
+    has_icon = download_icon(url, icon_path)
+
+    # 2. Chrome偽装UA
+    ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+
+    # 3. コマンド構成
+    # --new-window を外すことで、ログイン画面を別窓で開かせない
     cmd = [
-        "pake", url,
-        "--name", app_name,
-        "--user-agent", ua,
-        "--new-window",
+        "pake",url,
+        "--name",app_name,
+        "--user-agent",ua,
         "--enable-drag-drop",
         "--multi-instance",
         "--show-system-tray",
         "--force-internal-navigation",
         "--wasm",
-        "--targets", "x64"
+        "--targets",
+        "x64",
     ]
 
-    print(f"\n🛠️ {app_name} の MSI インストーラーを鋳造中...")
-    print("※ MSIのパッキング工程を含めるため、数分かかります。完了までお待ちください。")
-    
+    if has_icon:
+        cmd.extend(["--icon", str(icon_path)])
+
+    print(f"\n🛠️ {app_name} をビルド中...")
+
     try:
-        # ビルド実行
-        process = subprocess.run(cmd, cwd=downloads_dir, shell=True)
-        
-        if process.returncode == 0:
-            print(f"\n✅ ビルド成功！後片付けを開始します...")
-            
-            # .msi 以外の生成ファイル（.exe単体や中間ファイル）を削除する
-            # PakeはDownloads直下にファイルを生成するため、msi以外を掃除
-            all_files = glob.glob(str(downloads_dir / f"*{app_name}*"))
-            for f in all_files:
-                if not f.endswith(".msi"):
-                    try:
-                        if os.path.isfile(f):
-                            os.remove(f)
-                        elif os.path.isdir(f):
-                            import shutil
-                            shutil.rmtree(f)
-                    except Exception as e:
-                        print(f"掃除失敗: {f} ({e})")
-            
-            print(f"✨ Downloads フォルダに '{app_name}' の MSI だけを残しました。")
-        else:
-            print(f"\n❌ ビルドに失敗しました。")
-            
+        # MSI生成のために実行（iterative-buildは使用しない）
+        subprocess.run(cmd, cwd=downloads_dir, shell=True, check=True)
+        print(f"\n✅ 完了！Downloads フォルダを確認してください。")
+
+        # アイコン用の一時ファイルを掃除
+        if icon_path.exists():
+            os.remove(icon_path)
+
     except Exception as e:
-        print(f"実行エラー: {e}")
+        print(f"❌ ビルドエラー: {e}")
+
 
 if __name__ == "__main__":
     run_build()
