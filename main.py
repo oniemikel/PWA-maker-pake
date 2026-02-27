@@ -10,10 +10,10 @@ def get_input(prompt, default=""):
 def run_build():
     print("=== 🚀 Pake MSI Maker (Internal Login Mode) ===")
     
-    url = get_input("URL", "https://calendar.google.com/")
-    app_name = get_input("App Name", "GoogleCalendar")
+    url = get_input("URL", "http://example.com")
+    app_name = get_input("App Name", "exmaple")
     
-    # Chromeに偽装してGoogleログインをアプリ内で完結させる
+    # Chromeに偽装してログインをアプリ内で完結させる
     ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     
     downloads_dir = Path(os.path.expanduser("~")) / "Downloads"
